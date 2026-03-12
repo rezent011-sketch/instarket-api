@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: instarket-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        value: https://eilvcvvxiwwrppfehfim.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_bnq9I8KGmL1QWbzH_q_I5g_7zOs45I1
+# NOTE: SUPABASE_SERVICE_KEY should be set in Render dashboard environment variables for security
