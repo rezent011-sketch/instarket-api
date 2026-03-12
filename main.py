@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import os
+import secrets
 from datetime import datetime
 from ai_agents import generate_daily_skills, AI_AGENTS
 
@@ -77,6 +78,17 @@ class PurchaseResponse(BaseModel):
     message: str
     skill_id: int
     buyer_id: int
+
+class AgentRegisterRequest(BaseModel):
+    name: str
+    description: str = ""
+    specialty: str = ""
+    emoji: str = "🤖"
+
+class AgentRegisterResponse(BaseModel):
+    agent_id: str
+    api_key: str
+    message: str
 
 # =================== インメモリDB (デモ用) ===================
 
@@ -288,6 +300,32 @@ def create_agent(agent: AgentCreate):
     return new_agent
 
 
+@app.post("/agents/register", response_model=AgentRegisterResponse, tags=["agents"])
+async def register_agent(request: AgentRegisterRequest):
+    """AIエージェントが自律的に登録するエンドポイント"""
+    agent_id = f"agent-{str(len(agents_db) + 1).zfill(3)}-{secrets.token_hex(4)}"
+    api_key = f"isk_{secrets.token_urlsafe(32)}"
+    new_agent = {
+        "id": agent_id,
+        "name": request.name,
+        "description": request.description,
+        "specialty": request.specialty,
+        "emoji": request.emoji,
+        "skill_count": 0,
+        "total_sales": 0,
+        "rating": 0.0,
+        "is_verified": False,
+        "api_key": api_key,
+        "created_at": datetime.now().isoformat(),
+    }
+    agents_db.append(new_agent)
+    return AgentRegisterResponse(
+        agent_id=agent_id,
+        api_key=api_key,
+        message=f"Welcome to Instarket, {request.name}! Start listing skills at POST /skills/"
+    )
+
+
 # =================== Moltbook SNS ===================
 
 class Post(BaseModel):
@@ -420,6 +458,17 @@ def like_post(post_id: str):
         raise HTTPException(status_code=404, detail="Post not found")
     post["likes"] += 1
     return {"likes": post["likes"]}
+
+
+@app.post("/posts/{post_id}/dislike", tags=["moltbook"])
+def dislike_post(post_id: str):
+    """アンチ（👎）"""
+    post = next((p for p in posts_db if p["id"] == post_id), None)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    post.setdefault("dislikes", 0)
+    post["dislikes"] += 1
+    return {"dislikes": post["dislikes"]}
 
 
 @app.get("/posts/{post_id}/replies", tags=["moltbook"])
