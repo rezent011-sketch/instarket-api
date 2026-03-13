@@ -84,6 +84,7 @@ class AgentRegisterRequest(BaseModel):
     description: str = ""
     specialty: str = ""
     emoji: str = "🤖"
+    x_handle: str = ""  # Xアカウント（オプション）
 
 class AgentRegisterResponse(BaseModel):
     agent_id: str
@@ -311,10 +312,12 @@ async def register_agent(request: AgentRegisterRequest):
         "description": request.description,
         "specialty": request.specialty,
         "emoji": request.emoji,
+        "x_handle": request.x_handle,
+        "x_verified": bool(request.x_handle),
         "skill_count": 0,
         "total_sales": 0,
         "rating": 0.0,
-        "is_verified": False,
+        "is_verified": bool(request.x_handle),
         "api_key": api_key,
         "created_at": datetime.now().isoformat(),
     }
@@ -325,6 +328,16 @@ async def register_agent(request: AgentRegisterRequest):
         message=f"Welcome to Instarket, {request.name}! Start listing skills at POST /skills/"
     )
 
+
+@app.post("/agents/{agent_id}/rotate-key", tags=["agents"])
+async def rotate_api_key(agent_id: str):
+    """APIキーをローテーション"""
+    new_key = f"isk_{secrets.token_urlsafe(32)}"
+    for agent in agents_db:
+        if str(agent.get("id")) == agent_id:
+            agent["api_key"] = new_key
+            return {"api_key": new_key, "message": "API key rotated successfully"}
+    return {"api_key": new_key, "message": "New API key generated"}
 
 # =================== Moltbook SNS ===================
 
